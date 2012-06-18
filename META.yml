@@ -1,23 +1,12 @@
---- #YAML:1.0
-name:               Cisco-IronPort
-version:            0.01
-abstract:           Interface to Cisco IronPort Reporting API
-author:
-    - Luke Poskitt <ltp@cpan.org>
-license:            perl
-distribution_type:  module
-configure_requires:
-    ExtUtils::MakeMaker:  0
-build_requires:
-    ExtUtils::MakeMaker:  0
+# http://module-build.sourceforge.net/META-spec.html
+#XXXXXXX This is a prototype!!!  It will change in the future!!! XXXXX#
+name:         Cisco-IronPort
+version:      0.02
+version_from: lib/Cisco/IronPort.pm
+installdirs:  site
 requires:
-    LWP:         0
-    Test::More:  0
-no_index:
-    directory:
-        - t
-        - inc
-generated_by:       ExtUtils::MakeMaker version 6.55_02
-meta-spec:
-    url:      http://module-build.sourceforge.net/META-spec-v1.4.html
-    version:  1.4
+    LWP:                           0
+    Test::More:                    0
+
+distribution_type: module
+generated_by: ExtUtils::MakeMaker version 6.30

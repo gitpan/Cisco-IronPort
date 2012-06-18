@@ -6,11 +6,12 @@ use warnings;
 use LWP;
 use Carp qw(croak);
 
-our $VERSION 	= '0.01';
-our @SUBS	= qw (incoming_mail_summary incoming_mail_details);
+our $VERSION 	= '0.02';
+our @SUBS	= qw (incoming_mail_summary incoming_mail_details top_users_by_clean_outgoing_messages);
 our @RANGES	= qw (current_hour current_day);
 our %SORT_MAP	= (
-			incoming_mail_details	=> 4
+			incoming_mail_details			=> 'sender_domain',
+			top_users_by_clean_outgoing_messages	=> 'internal_user'
 		);
 
 sub new {
@@ -51,15 +52,18 @@ sub __content_filter_statistics_raw {
 	return $self->__request('content_filters?section=ss_0_0_0&date_range=current_day')
 }
 
+sub __top_users_by_clean_outgoing_messages {
+	my ($self,%args) = @_;
+	return $self->__request("report?report_query_id=mga_internal_users_top_outgoing_messages&date_range=$args{date_range}&report_def_id=mga_internal_users&format=csv")
+}
+
 sub __incoming_mail_summary {
 	my ($self,%args) = @_;
-	defined $args{date_range} or return 0;
 	return $self->__request("report?format=csv&report_query_id=mga_overview_incoming_mail_summary&date_range=$args{date_range}&report_def_id=mga_overview")
 }
 
 sub __incoming_mail_details {
 	my ($self,%args) = @_;
-	defined $args{date_range} or return 0;
 	return $self->__request("incoming_mail?format=csv&report_query_id=mga_incoming_mail_domain_search&date_range=$args{date_range}&report_def_id=mga_incoming_mail");
 }
 
@@ -73,16 +77,34 @@ sub __request {
 }
 
 sub __parse_statistics {
-	my ($d, $sort)	= @_;
+	my ($d, $s)	= @_;
 	my @d = split /\n/, $d;
 	my %res;
 	my @headers 	= map { s/ /_/g; s/\s*$//g; lc $_ } (split /,/, shift @d);
+	my ($index)	= grep { $headers[$_] eq $s } 0..$#headers;
 	
 	foreach (@d) {
 		my $c = 0;
 		my @cols = split /,/;
+		$cols[-1] =~ s/\s*$//;	
+
 		foreach (@cols) {
-			$res{$cols[$sort]}{$headers[$c]} = $_;
+			if (not defined $res{$cols[$index]}{$headers[$c]}) {
+				$res{$cols[$index]}{$headers[$c]} = $_ 
+			}
+			elsif ( $headers[$c] =~ /end_(timestamp|date)/ ) { 
+				$res{$cols[$index]}{$headers[$c]} = (sort { $b cmp $a } ($_, $res{$cols[$index]}{$headers[$c]}))[0] 
+			}
+			elsif ( $headers[$c] =~ /begin_(timestamp|date)/ ) {
+				$res{$cols[$index]}{$headers[$c]} = (sort { $a cmp $b } ($_, $res{$cols[$index]}{$headers[$c]}))[0] 
+			}
+			elsif ( $headers[$c] =~ /(sender_domain|orig_value|internal_user)/ ) {
+				$res{$cols[$index]}{$headers[$c]} = $_ 
+			}
+			else { 
+				$res{$cols[$index]}{$headers[$c]} += $_ 
+			}
+			
 			$c++
 		}
 	}
@@ -282,6 +304,54 @@ API.  This method is useful is you wish to access and/or parse the results direc
 Returns a scalar containing the incoming mail details for the current day period as retrieved directly from the reporting
 API.  This method is useful is you wish to access and/or parse the results directly.
 
+=head2 top_users_by_clean_outgoing_messages_current_hour
+
+	# Print a list of our top internal users and number of messages sent.
+	
+	my %top_users = $ironport->top_users_by_clean_outgoing_messages_current_hour;
+
+	foreach my $user (sort keys %top_users) {
+		print "$user - $top_users{clean_messages} messages\n";
+	}
+
+Returns a nested hash containing details of the top ten internal users by number of clean outgoing messages sent for the
+current hour period.  The hash has the following structure:
+
+	'user1@domain.com' => {
+		begin_date	=> a human-readable timestamp of the begining of the current hour period ('YYYY-MM-DD HH:MM TZ'),
+		begin_timestamp	=> a timestamp of the beginning of the current hour period in seconds since epoch,
+		end_date	=> a human-readable timestamp of the end of the current hour period ('YYYY-MM-DD HH:MM TZ'),
+		end_timestamp	=> a timestamp of the end of the current hour period in seconds since epoch,
+		internal_user	=> the email address of the user (this may also be 'unknown user' if the address cannot be determined),
+		clean_messages	=> the number of clean messages sent by this user for the current hour period
+	},
+	'user2@domain.com' => {
+		...
+	},
+	...
+	user10@domain.com' => {
+		...
+	}
+
+=head2 top_users_by_clean_outgoing_messages_current_day
+
+returns a nested hash containing details of the top ten internal users by number of clean outgoing messages sent for the
+current day period.
+
+=head2 top_users_by_clean_outgoing_messages_current_hour_raw
+
+Returns a scalar containing the details of the top ten internal users by number of clean outgoing messages sent for the
+current hour period as retrieved directly from the reporting API.  
+
+This method may be useful if you wish to process the raw data retrieved from the API yourself.
+
+=head2 top_users_by_clean_outgoing_messages_current_day_raw
+
+Returns a scalar containing the details of the top ten internal users by number of clean outgoing messages sent for the
+current day period as retrieved directly from the reporting API.  
+
+This method may be useful if you wish to process the raw data retrieved from the API yourself.
+		
 =cut
 
 =head1 AUTHOR
