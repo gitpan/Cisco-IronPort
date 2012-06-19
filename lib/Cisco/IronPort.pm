@@ -6,7 +6,7 @@ use warnings;
 use LWP;
 use Carp qw(croak);
 
-our $VERSION 	= '0.02';
+our $VERSION 	= '0.03';
 our @SUBS	= qw (incoming_mail_summary incoming_mail_details top_users_by_clean_outgoing_messages);
 our @RANGES	= qw (current_hour current_day);
 our %SORT_MAP	= (
@@ -117,8 +117,8 @@ sub __parse_summary {
 	my @d = split /\n/, $d;
 	my %res;
 	my @headers 	= map { s/ /_/g; s/\s*$//g; lc $_ } (split /,/, $d[0]);
-	my @percent	= split /,/, $d[1];
-	my @count	= split /,/, $d[2];
+	my @percent	= split /,/, $d[1]; $percent[-1] =~ s/\s*$//g;
+	my @count	= split /,/, $d[2]; $count[-1] =~ s/\s*$//g;
 
 	my $c = 0;
 	foreach my $h (@headers) {
