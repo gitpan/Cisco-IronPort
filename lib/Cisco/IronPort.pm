@@ -6,21 +6,32 @@ use warnings;
 use LWP;
 use Carp qw(croak);
 
-our $VERSION 	= '0.03';
-our @SUBS	= qw (incoming_mail_summary incoming_mail_details top_users_by_clean_outgoing_messages);
+our $VERSION 	= '0.04';
 our @RANGES	= qw (current_hour current_day);
-our %SORT_MAP	= (
-			incoming_mail_details			=> 'sender_domain',
-			top_users_by_clean_outgoing_messages	=> 'internal_user'
+our %M_MAP	= (
+		top_users_by_clean_outgoing_messages 	=> {
+							report_query	=> 'mga_internal_users_top_outgoing_messages',
+							report_def	=> 'mga_internal_users',
+							sortby		=> 'internal_user'
+							},
+		incoming_mail_summary			=> {
+							report_query	=> 'mga_overview_incoming_mail_summary',
+							report_def	=> 'mga_overview',
+							},
+		incoming_mail_details			=> {
+							report_query	=> 'mga_incoming_mail_domain_search',
+							report_def	=> 'mga_incoming_mail',
+							sortby		=> 'sender_domain'
+							}
 		);
 
 sub new {
 	my($class, %args) = @_;
 	my $self = bless {}, $class;
-        defined $args{server}   ? $self->{server}       = $args{server}         : croak 'Constructor failed: server not defined';
-        defined $args{username} ? $self->{username}     = $args{username}       : croak 'Constructor failed: username not defined';
-        defined $args{password} ? $self->{password}     = $args{password}       : croak 'Constructor failed: password not defined';
-	$self->{proto}		= ($args{proro} or 'https');
+        defined $args{server}   ? $self->{server}   = $args{server}   : croak 'Constructor failed: server not defined';
+        defined $args{username} ? $self->{username} = $args{username} : croak 'Constructor failed: username not defined';
+        defined $args{password} ? $self->{password} = $args{password} : croak 'Constructor failed: password not defined';
+	$self->{proto}		= ($args{proto} or 'https');
 	$self->{ua}		= LWP::UserAgent->new ( ssl_opts => { verify_hostname => 0 } );
 	$self->{uri}		= $self->{proto}.'://'.$self->{username}.':'.$self->{password}.'@'.$self->{server}.'/monitor/reports/';
 	return $self
@@ -29,47 +40,33 @@ sub new {
 {
 	no strict 'refs';
 
-	foreach my $sub (@SUBS) {
+	foreach my $m (keys %M_MAP) {
+		*{ __PACKAGE__ . '::__' . $m } = sub {
+			my ($self,%args) = @_;
+			return $self->__request("report?format=csv&date_range=$args{date_range}&" .
+						"report_query_id=$M_MAP{$m}{report_query}&" .
+						"report_def_id=$M_MAP{$m}{report_def}")
+		};
+
 		foreach my $range (@RANGES) {
-			my $p = ($sub =~ /summary/ ? '__parse_summary' : '__parse_statistics');
-			*{ __PACKAGE__ . '::' . $sub . '_' . $range } = sub {
+			my $p = ($m =~ /summary/ ? '__parse_summary' : '__parse_statistics');
+			*{ __PACKAGE__ . '::' . $m . '_' . $range } = sub {
 				my $self = shift;
-				my $m = '__'.$sub;
-				return $p->($self->$m(date_range => $range), $SORT_MAP{$sub})
+				my $f = '__'.$m;
+				return $p->($self->$f(date_range => $range), $M_MAP{$m}{sortby})
 			};
 
-			*{ __PACKAGE__ . '::' . $sub . '_' . $range . '_raw' } = sub {
+			*{ __PACKAGE__ . '::' . $m . '_' . $range . '_raw' } = sub {
 				my $self = shift;
-				my $m = '__'.$sub;
-				return $self->$m(date_range => $range)
-			}
+				my $f = '__'.$m;
+				return $self->$f(date_range => $range)
+			};
 		}
 	}
 }
 
-sub __content_filter_statistics_raw {
-	my $self = shift;
-	return $self->__request('content_filters?section=ss_0_0_0&date_range=current_day')
-}
-
-sub __top_users_by_clean_outgoing_messages {
-	my ($self,%args) = @_;
-	return $self->__request("report?report_query_id=mga_internal_users_top_outgoing_messages&date_range=$args{date_range}&report_def_id=mga_internal_users&format=csv")
-}
-
-sub __incoming_mail_summary {
-	my ($self,%args) = @_;
-	return $self->__request("report?format=csv&report_query_id=mga_overview_incoming_mail_summary&date_range=$args{date_range}&report_def_id=mga_overview")
-}
-
-sub __incoming_mail_details {
-	my ($self,%args) = @_;
-	return $self->__request("incoming_mail?format=csv&report_query_id=mga_incoming_mail_domain_search&date_range=$args{date_range}&report_def_id=mga_incoming_mail");
-}
-
 sub __request {
         my($self,$uri)	= @_;
-        $uri or return;
         my $res		= $self->{ua}->get($self->{uri}.$uri);
         $res->is_success and return $res->content;
         $self->{error}  = 'Unable to retrieve content: ' . $res->status_line;
@@ -140,10 +137,10 @@ Cisco::IronPort - Interface to Cisco IronPort Reporting API
 	use Cisco::IronPort;
 
 	my $ironport = Cisco::IronPort->new(
-						username => $username,
-						password => $password,
-						server	 => $server
-					);
+		username => $username,
+		password => $password,
+		server	 => $server
+	);
 
 	my %stats = $ironport->incoming_mail_summary_current_hour;
 
@@ -160,10 +157,10 @@ Cisco::IronPort - Interface to Cisco IronPort Reporting API
 =head2 new ( %ARGS )
 
 	my $ironport = Cisco::IronPort->new(
-						username => $username,
-						password => $password,
-						server	 => $server
-					);
+	  	username => $username,
+	  	password => $password,
+	  	server	 => $server
+	);
 
 Creates a Cisco::IronPort object.  The constructor accepts a hash containing three mandatory and one
 optional parameter.
@@ -199,19 +196,19 @@ Returns a nested hash containing incoming mail summary statistics for the curren
 has the structure show below:
 
 	$stats = {
-		'statistic_name_1' => 	{
-						'count'   => $count,
-						'percent' => $percent
-					},
-		'statistic_name_2' => 	{
-						'count'   => $count,
-						'percent' => $percent
-					},
-		...
+	  'statistic_name_1' =>	{
+	    'count'   => $count,
+	    'percent' => $percent
+	  },
+	  'statistic_name_2' => {
+	    'count'   => $count,
+	    'percent' => $percent
+	  },
+	  ...
 
-		'statistic_name_n =>	{
-						...
-					}
+	  'statistic_name_n => {
+	    ...
+	  }
 
 Valid statistic names are show below - these names are derived from those returned by the reporting API
 with all spaces converted to underscores and all characters lower-cased.
@@ -252,38 +249,39 @@ This method may be useful if you wish to process the raw data from the API call 
 	my %stats = $ironport->incoming_mail_details_current_hour;
 	
 	foreach my $domain (keys %stats) {
-		if ( ( $stats{$domain}{total_attempted} > 50 ) and 
-			( int (($stats{$domain}{spam_detected}/$stats{$domain}{total_attempted})*100) > 50 ) {
-			print "Domain $domain sent $stats{$domain}{total_attempted} messages, $stats{$domain}{spam_detected} were marked as spam.\n"
-		}
+	  if ( ( $stats{$domain}{total_attempted} > 50 ) and 
+	       ( int (($stats{$domain}{spam_detected}/$stats{$domain}{total_attempted})*100) > 50 ) {
+	    print "Domain $domain sent $stats{$domain}{total_attempted} messages, $stats{$domain}{spam_detected} were marked as spam.\n"
+	  }
 	}
 
 Returns a nested hash containing details of incoming mail statistics for the current hour period.  The hash has the following structure:
 
 	sending.domain1.com => {
-		begin_date			=> a human-readable timestamp at the beginning of the measurement interval (YYYY-MM-DD HH:MM TZ),
-		begin_timestamp			=> seconds since epoch at the beginning of the measurement interval (resolution of 100ms),
-		clean				=> total number of clean messages sent by this domain,
-		connections_accepted		=> total number of connections accepted from this domain,
-		end_date			=> a human-readable timestamp at the end of the measurement interval (YYYY-MM-DD HH:MM TZ),
-		end_timestamp			=> seconds since epoch at the end of the measurement interval (resolution of 100ms),
-		orig_value			=> the domain name originally establishing the connection prior to any relaying or masquerading,
-		sender_domain			=> the sending domain,
-		spam_detected			=> the number of messages marked as spam from this domain,
-		stopped_as_invalid_recipients	=> number of messages stopped from this domain due to invalid recipients,
-		stopped_by_content_filter	=> number of messages stopped from this domain due to content filtering,
-		stopped_by_recipient_throttling	=> number of messages stopped from this domain due to recipient throttling,
-		stopped_by_reputation_filtering	=> number of messages stopped from this domain due to reputation filtering,
-		total_attempted			=> total number of messages sent from this domain,
-		total_threat			=> total number of messages marked as threat messages from this domain,
-		virus_detected			=> total number of messages marked as virus positive from this domain
+	  begin_date				=> a human-readable timestamp at the beginning of the measurement interval (YYYY-MM-DD HH:MM TZ),
+	  begin_timestamp			=> seconds since epoch at the beginning of the measurement interval (resolution of 100ms),
+	  clean					=> total number of clean messages sent by this domain,
+	  connections_accepted			=> total number of connections accepted from this domain,
+	  end_date				=> a human-readable timestamp at the end of the measurement interval (YYYY-MM-DD HH:MM TZ),
+	  end_timestamp				=> seconds since epoch at the end of the measurement interval (resolution of 100ms),
+	  orig_value				=> the domain name originally establishing the connection prior to any relaying or masquerading,
+	  sender_domain				=> the sending domain,
+	  spam_detected				=> the number of messages marked as spam from this domain,
+	  stopped_as_invalid_recipients		=> number of messages stopped from this domain due to invalid recipients,
+	  stopped_by_content_filter		=> number of messages stopped from this domain due to content filtering,
+	  stopped_by_recipient_throttling	=> number of messages stopped from this domain due to recipient throttling,
+	  stopped_by_reputation_filtering	=> number of messages stopped from this domain due to reputation filtering,
+	  total_attempted			=> total number of messages sent from this domain,
+	  total_threat				=> total number of messages marked as threat messages from this domain,
+	  virus_detected			=> total number of messages marked as virus positive from this domain
 	},
 	sending.domain2.com => {
-		...
+	  ...
 	},
 	...
 	sending.domainN.com => {
-	...
+	  ...
+	}
 
 Where each domain having sent email in the current hour period is used as the value of a hash key in the returned hash having
 the subkeys listed above.  For a busy device this hash may contain hundreds or thousands of domains so caution should be 
@@ -311,26 +309,26 @@ API.  This method is useful is you wish to access and/or parse the results direc
 	my %top_users = $ironport->top_users_by_clean_outgoing_messages_current_hour;
 
 	foreach my $user (sort keys %top_users) {
-		print "$user - $top_users{clean_messages} messages\n";
+	  print "$user - $top_users{clean_messages} messages\n";
 	}
 
 Returns a nested hash containing details of the top ten internal users by number of clean outgoing messages sent for the
 current hour period.  The hash has the following structure:
 
 	'user1@domain.com' => {
-		begin_date	=> a human-readable timestamp of the begining of the current hour period ('YYYY-MM-DD HH:MM TZ'),
-		begin_timestamp	=> a timestamp of the beginning of the current hour period in seconds since epoch,
-		end_date	=> a human-readable timestamp of the end of the current hour period ('YYYY-MM-DD HH:MM TZ'),
-		end_timestamp	=> a timestamp of the end of the current hour period in seconds since epoch,
-		internal_user	=> the email address of the user (this may also be 'unknown user' if the address cannot be determined),
-		clean_messages	=> the number of clean messages sent by this user for the current hour period
+	  begin_date		=> a human-readable timestamp of the begining of the current hour period ('YYYY-MM-DD HH:MM TZ'),
+	  begin_timestamp	=> a timestamp of the beginning of the current hour period in seconds since epoch,
+	  end_date		=> a human-readable timestamp of the end of the current hour period ('YYYY-MM-DD HH:MM TZ'),
+	  end_timestamp		=> a timestamp of the end of the current hour period in seconds since epoch,
+	  internal_user		=> the email address of the user (this may also be 'unknown user' if the address cannot be determined),
+	  clean_messages	=> the number of clean messages sent by this user for the current hour period
 	},
 	'user2@domain.com' => {
-		...
+	  ...
 	},
 	...
 	user10@domain.com' => {
-		...
+	  ...
 	}
 
 =head2 top_users_by_clean_outgoing_messages_current_day
