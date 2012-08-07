@@ -6,7 +6,7 @@ use warnings;
 use LWP;
 use Carp qw(croak);
 
-our $VERSION 	= '0.04';
+our $VERSION 	= '0.05';
 our @RANGES	= qw (current_hour current_day);
 our %M_MAP	= (
 		top_users_by_clean_outgoing_messages 	=> {
@@ -22,7 +22,12 @@ our %M_MAP	= (
 							report_query	=> 'mga_incoming_mail_domain_search',
 							report_def	=> 'mga_incoming_mail',
 							sortby		=> 'sender_domain'
-							}
+							},
+		average_time_in_workqueue		=> {
+							report_query	=> 'mga_system_capacity_average_time_workqueue',
+							report_def	=> 'mga_system_capacity',
+							sortby		=> 'begin_timestamp'
+							},
 		);
 
 sub new {
@@ -333,7 +338,7 @@ current hour period.  The hash has the following structure:
 
 =head2 top_users_by_clean_outgoing_messages_current_day
 
-returns a nested hash containing details of the top ten internal users by number of clean outgoing messages sent for the
+Returns a nested hash containing details of the top ten internal users by number of clean outgoing messages sent for the
 current day period.
 
 =head2 top_users_by_clean_outgoing_messages_current_hour_raw
@@ -349,7 +354,61 @@ Returns a scalar containing the details of the top ten internal users by number 
 current day period as retrieved directly from the reporting API.  
 
 This method may be useful if you wish to process the raw data retrieved from the API yourself.
-		
+
+=head2 average_time_in_workqueue_current_hour
+
+	my %stats = $ironport->average_time_in_workqueue_current_day;
+	
+	foreach my $i (sort keys %stats) {
+		print "$stats{$i}{end_date} : $stats{$i}{time}\n"
+	}
+	
+	# Prints the average time a message spent in the workqueue for the current hourly period
+	# e.g.
+	# 2012-08-07 03:34 GMT : 1.76650943396
+	# 2012-08-07 03:39 GMT : 4.97411003236
+	# 2012-08-07 03:44 GMT : 0.955434782609
+	# 2012-08-07 03:49 GMT : 3.38574040219
+	# 2012-08-07 03:54 GMT : 2.32837301587
+	# ...
+
+This method returns a nested hash containing statistics for the average time a message spent in the workqueue for
+the previous hourly period - the hash has the following structure:
+
+	measurement_period_1_begin_timestamp => {
+	  begin_timestamp	=> a timestamp marking the beginning of the measurement period in seconds since epoch,
+	  end_timestamp		=> a timestamp marking the ending of the measurement period in seconds since epoch,
+	  begin_date		=> a human-readable timestamp marking the beginning of the measurement period (YYYY-MM-DD HH:MM:SS TZ),
+	  end_date		=> a human-readable timestamp marking the ending of the measurement period (YYYY-MM-DD HH:MM:SS TZ),
+	  time			=> the average time in seconds a message spent in the workqueue for the measurement period
+	},
+	measurement_period_2_begin_timestamp => {
+	  ...
+	},
+	...
+	measurement_period_n_begin_timestamp => {
+	  ...
+	}
+
+=head2 average_time_in_workqueue_current_day
+
+Returns a nested hash containing statistics for the average time a message spent in the workqueue for the previous
+daily period - the hash has the same structure as detailed in the B<average_time_in_workqueue_current_hour> above.
+
+=head2 average_time_in_workqueue_current_hour_raw
+
+Returns a scalar containing statistics for the average time a message spent in the workqueue for the previous hourly
+period as retrieved directly from the reporting API.
+
+This method may be useful if you wish to process the raw data retrieved from the API yourself.
+
+=head2 average_time_in_workqueue_current_day_raw
+
+Returns a scalar containing statistics for the average time a message spent in the workqueue for the previous daily
+period as retrieved directly from the reporting API.
+
+This method may be useful if you wish to process the raw data retrieved from the API yourself.
+
 =cut
 
 =head1 AUTHOR

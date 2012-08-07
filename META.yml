@@ -1,6 +1,6 @@
 --- #YAML:1.0
 name:               Cisco-IronPort
-version:            0.04
+version:            0.05
 abstract:           Interface to Cisco IronPort Reporting API
 author:
     - Luke Poskitt <ltp@cpan.org>
