@@ -1,6 +1,35 @@
 Revision history for Cisco-IronPort
 
-0.08	15-04-2013
+0.09	28-05-2013 ltp@cpan.org
+	Added new methods:
+		- content_filter_detail_current_day
+		- content_filter_detail_current_day_raw
+		- content_filter_detail_current_hour
+		- content_filter_detail_current_hour_raw
+		- content_filter_detail_current_week
+		- content_filter_detail_current_week_raw
+		- outgoing_content_filter_matches_current_day
+		- outgoing_content_filter_matches_current_day_raw
+		- outgoing_content_filter_matches_current_hour
+		- outgoing_content_filter_matches_current_hour_raw
+		- outgoing_content_filter_matches_current_week
+		- outgoing_content_filter_matches_current_week_raw
+		- outgoing_delivery_status_current_day
+		- outgoing_delivery_status_current_day_raw
+		- outgoing_delivery_status_current_hour
+		- outgoing_delivery_status_current_hour_raw
+		- outgoing_delivery_status_current_week
+		- outgoing_delivery_status_current_week_raw
+		- top_incoming_content_filter_matches_current_day
+		- top_incoming_content_filter_matches_current_day_raw
+		- top_incoming_content_filter_matches_current_hour
+		- top_incoming_content_filter_matches_current_hour_raw
+		- top_incoming_content_filter_matches_current_week
+		- top_incoming_content_filter_matches_current_week_raw
+
+	Re-wrote core to handle new parameters.
+
+0.08	15-04-2013 ltp@cpan.org
 	Added new methods:
 		- incoming_mail_summary_current_week
 		- incoming_mail_summary_current_week_raw
@@ -45,14 +74,14 @@ Revision history for Cisco-IronPort
 		- internal_user_details_current_week
 		- internal_user_details_current_week_raw
 
-0.07	05-12-2012
+0.07	05-12-2012 ltp@cpan.org
 	Added new methods:
 		- internal_user_details_current_hour
 		- internal_user_details_current_hour_raw
 		- internal_user_details_current_day
 		- internal_user_details_current_day_raw
 
-0.06	14-09-2012
+0.06	14-09-2012 ltp@cpan.org
 	Added new methods:
 		- average_incoming_message_size_current_hour
 		- average_incoming_message_size_current_hour_raw
@@ -119,13 +148,13 @@ Revision history for Cisco-IronPort
 		- total_outgoing_messages_current_day
 		- total_outgoing_messages_current_day_raw
 
-0.05	07-08-2012
+0.05	07-08-2012 ltp@cpan.org
 	Added new methods:
 		- average_time_in_workqueue_current_hour
 		- average_time_in_workqueue_current_day
 		- average_time_in_workqueue_current_hour_raw
 		- average_time_in_workqueue_current_day_raw
 
-0.01    19-06-2012
+0.01    19-06-2012 ltp@cpan.org
         Initial release to CPAN.
 
